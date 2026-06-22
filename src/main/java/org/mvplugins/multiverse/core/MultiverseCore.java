@@ -30,6 +30,7 @@ import org.mvplugins.multiverse.core.inject.PluginServiceLocatorFactory;
 import org.mvplugins.multiverse.core.module.MultiverseModule;
 import org.mvplugins.multiverse.core.utils.StringFormatter;
 import org.mvplugins.multiverse.core.world.WorldManager;
+import org.mvplugins.multiverse.core.world.entity.SpawnCategoryMapper;
 import org.mvplugins.multiverse.core.world.location.NullSpawnLocation;
 import org.mvplugins.multiverse.core.world.location.SpawnLocation;
 import org.mvplugins.multiverse.core.world.location.UnloadedWorldLocation;
@@ -96,6 +97,9 @@ public class MultiverseCore extends MultiverseModule {
             return;
         }
         Logging.setShowingConfig(shouldShowConfig());
+
+        // Build it here so our logger can work, and failure messages will be logged
+        SpawnCategoryMapper.buildSpawnCategoryMap();
 
         // Initialize the worlds
         worldManagerProvider.get().initAllWorlds().andThenTry(() -> {

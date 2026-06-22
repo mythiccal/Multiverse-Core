@@ -4,8 +4,10 @@ import com.dumptruckman.minecraft.util.Logging;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.MemoryConfiguration;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.SpawnCategory;
 import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.NotNull;
 import org.mvplugins.multiverse.core.config.CoreConfig;
 import org.mvplugins.multiverse.core.utils.StringFormatter;
 import org.mvplugins.multiverse.core.world.MultiverseWorld;
@@ -19,12 +21,13 @@ public final class EntitySpawnConfig {
     private final CoreConfig config;
     private final Map<SpawnCategory, SpawnCategoryConfig> spawnCategoriesConfig;
 
-    EntitySpawnConfig(CoreConfig config, Map<SpawnCategory, SpawnCategoryConfig> spawnCategoriesConfig) {
+    EntitySpawnConfig(@NotNull CoreConfig config,
+                      @NotNull Map<SpawnCategory, SpawnCategoryConfig> spawnCategoriesConfig) {
         this.config = config;
         this.spawnCategoriesConfig = spawnCategoriesConfig;
     }
 
-    public SpawnCategoryConfig getSpawnCategoryConfig(SpawnCategory spawnCategory) {
+    public @NotNull SpawnCategoryConfig getSpawnCategoryConfig(@NotNull SpawnCategory spawnCategory) {
         return spawnCategoriesConfig.computeIfAbsent(spawnCategory,
                 computeSpawnCategory -> new SpawnCategoryConfig(
                         config,
@@ -33,8 +36,17 @@ public final class EntitySpawnConfig {
                 ));
     }
 
-    public boolean shouldAllowSpawn(Entity entity) {
-        return getSpawnCategoryConfig(entity.getSpawnCategory()).shouldAllowSpawn(entity);
+    @ApiStatus.AvailableSince("5.7")
+    public boolean shouldAllowSpawn(@NotNull EntityType entityType) {
+        // Ensure it defaults to true if SpawnCategoryMapper fails to find a spawn category for the entity type,
+        // to avoid accidentally breaking mob spawns.
+        return SpawnCategoryMapper.getSpawnCategory(entityType)
+                .map(spawnCategory -> getSpawnCategoryConfig(spawnCategory).shouldAllowSpawn(entityType))
+                .getOrElse(true);
+    }
+
+    public boolean shouldAllowSpawn(@NotNull Entity entity) {
+        return shouldAllowSpawn(entity.getType());
     }
 
     public void applyConfigToWorld() {
@@ -51,16 +63,19 @@ public final class EntitySpawnConfig {
     }
 
     @ApiStatus.Internal
-    public ConfigurationSection toSection() {
+    public @NotNull ConfigurationSection toSection() {
         MemoryConfiguration section = new MemoryConfiguration();
         spawnCategoriesConfig.forEach((spawnCategory, spawnCategoryConfig) -> {
-            section.set(spawnCategory.toString().toLowerCase(Locale.ENGLISH), spawnCategoryConfig.saveSection());
+            section.set(String.valueOf(spawnCategory).toLowerCase(Locale.ENGLISH), spawnCategoryConfig.saveSection());
         });
         return section;
     }
 
     @ApiStatus.Internal
-    public static EntitySpawnConfig fromSection(CoreConfig config, ConfigurationSection section) {
+    public static @NotNull EntitySpawnConfig fromSection(
+            @NotNull CoreConfig config,
+            @NotNull ConfigurationSection section
+    ) {
         Map<SpawnCategory, SpawnCategoryConfig> spawnCategoriesConfig = new LinkedHashMap<>();
         Map<String, Object> existingCategories = section.getValues(false);
         for (SpawnCategory category : SpawnCategory.values()) {
